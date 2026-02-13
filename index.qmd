@@ -1,6 +1,6 @@
 ---
-title: "Yujun Lian"
-image: images/lianyujun_2025.png
+title: "Yulong Fan"
+image: images/photo_fan_yulong.png
 about:
   id: hero-heading
   template: trestles
@@ -8,35 +8,18 @@ about:
   image-shape: round
   links:
     - icon: mailbox
-      text: arlionn@163.com
-      href: mailto:arlionn@163.com
+      text: fanyulong@sdust.edu.cn
+      href: mailto:fanyulong@sdust.edu.cn
     - icon: github
       text: arlionn
-      href: https://github.com/lianyujun
+      href: https://github.com/Dlong12
     - icon: book
       text: Google Scholar
       href: https://scholar.google.com/citations?user=tlkDP2AAAAAJ
     - icon: fingerprint
       text: ORCID
-      href: https://orcid.org/0000-0002-2011-7535
-    - icon: brands zhihu
-      text: 知乎
-      href: https://www.zhihu.com/people/arlionn/
-    - icon: brands weibo
-      text: 微博
-      href: https://weibo.com/arlionn
-    - icon: brands xing
-      text: 小红书
-      href: https://www.xiaohongshu.com/user/profile/682968d9000000000a03da1a
+      href: https://orcid.org/0000-0003-2345-9693
     - icon: solid user
-      text: 工作主页
-      href: https://lingnan.sysu.edu.cn/faculty/LianYujun
-    - icon: brands home
-      text: 连享会
-      href: https://www.lianxh.cn
-    - icon: 📝
-      text: CV
-      href: CV.pdf  
 ---
 
 ::: {#hero-heading}
