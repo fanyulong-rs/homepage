@@ -232,7 +232,7 @@ ul.task-list li input[type="checkbox"] {
 <p>With his expertise in applied econometrics, he has made significant contributions to the <a href="https://www.stata.com/">Stata</a> community by developing several popular packages, including <code>winsor2</code>, <code>xtbalance</code>, <code>bdiff</code>, and <code>sftt</code>, which have been widely used by researchers in various fields. He is one of the initiators of the Chinese Stata Users Group Meeting, which is one of the imporat meeting of Stata Corporation. He has been invited several times as a guest speaker to deliver keynote speeches (<a href="https://www.stata.com/meeting/china18/">2018th</a>, <a href="https://www.stata.com/meeting/china20-Uone-Tech/">2020th</a>, <a href="https://www.stata.com/meeting/china21-Uone-Tech/">2021th</a>, <a href="https://www.stata.com/meeting/china22-Uone-Tech/">2022th</a>, <a href="https://www.stata.com/meeting/china23-Uone-Tech/">2023th</a>).</p>
 <p>He is also the founder of the website <a href="https://www.lianxh.cn" class="uri">https://www.lianxh.cn</a>, one of the largest academic websites in mainland China specializing in management and economics. Currently, it has published over 1300 articles introducing econometric and statistical methods. The WeChat official account lianxh_cn, established based on this website, has accumulated over 280,000 subscribers, with a total reading volume exceeding 20 million and a daily average reading volume exceeding 10,000.</p>
 <section id="Education background" class="level2">
-<h2 data-anchor-id="Education background">Education background"</h2>
+<h2 data-anchor-id="Education background">Education background</h2>
 <ul>
 <li>Jan 2024 - Aug 2024: Visiting Professor, DeGroote School of Business, McMaster Univeristy.</li>
 <li>Aug 2015 - Jan 2016: Visiting Scholar, MIT Sloan School of Management, Massachusetts Institute of Technology</li>
@@ -240,7 +240,7 @@ ul.task-list li input[type="checkbox"] {
 <li>2007-2010: Lecturer, Department of Finance, Lingnan College, Sun Yat-sen University</li>
 <li>2001-2007: Ph.D.&nbsp;in Economics, Xi’an Jiaotong University, China, specializing in Econometrics</li>
 <li>1997-2001: Bachelor of Engineering, Xi’an Jiaotong University, China, majoring in Materials Science.</li>
-<ul>
+<section id="Awards and Honors" class="level2">
 <h2 data-anchor-id="Awards and Honors">Awards and Honors</h2>
 </ul>
 </section>
@@ -660,21 +660,100 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 });
 </script>
 </div> <!-- /content -->
-<footer class="footer">
-  <div class="nav-footer">
-    <div class="nav-footer-left">
-<p><a href="https://www.lianxh.cn">lianxh.cn</a><br></p>
-</div>   
-    <div class="nav-footer-center">
-      &nbsp;
-    <div class="toc-actions"><ul><li><a href="https://github.com/lianyujun/lianyujun.github.io/edit/main/index.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/lianyujun/lianyujun.github.io/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div>
-    <div class="nav-footer-right">
-<p>Made with <a href="https://quarto.org/">Quarto</a><br></p>
+<!-- 访客地图：放在 </main> 之后或 </body> 前 -->
+<style>
+#visitor-map { position: fixed; right: 1rem; bottom: 1rem; width: 340px; height: 220px; z-index: 2000;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.18); border-radius: 6px; overflow: hidden; background:#fff; }
+#visitor-map .vm-toggle { position:absolute; left:6px; top:6px; z-index:2100; background:rgba(255,255,255,0.95);
+  padding:4px 6px; border-radius:4px; cursor:pointer; font-size:12px; box-shadow:0 1px 4px rgba(0,0,0,0.08);}
+#visitor-map .vm-caption { position:absolute; right:6px; top:6px; z-index:2100; background:rgba(255,255,255,0.9);
+  padding:4px 6px; border-radius:4px; font-size:12px; color:#333;}
+#vm-map { width:100%; height:100%; }
+</style>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<div id="visitor-map" title="Visitor Map">
+  <div class="vm-toggle" id="vm-toggle">隐藏</div>
+  <div class="vm-caption" id="vm-caption">定位中…</div>
+  <div id="vm-map"></div>
 </div>
-  </div>
-</footer>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function(){
+  const container = document.getElementById('visitor-map');
+  const toggle = document.getElementById('vm-toggle');
+  const caption = document.getElementById('vm-caption');
+  const mapElId = 'vm-map';
 
+  // 切换显示/隐藏
+  let visible = true;
+  toggle.onclick = () => {
+    visible = !visible;
+    container.style.display = visible ? 'block' : 'none';
+    toggle.innerText = visible ? '隐藏' : '显示';
+  };
 
+  // 初始化 Leaflet 地图（无缩放控件、简洁显示）
+  const map = L.map(mapElId, { zoomControl: true, attributionControl: false }).setView([20,0], 2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+
+  // 显示错误信息
+  const showError = (msg) => {
+    caption.innerText = msg;
+  };
+
+  // 获取访客 IP -> 地理位置（替换为你偏好的 IP 定位服务）
+  // ipapi.co 示例：返回 JSON 包含 latitude/longitude
+  fetch('https://ipapi.co/json/')
+    .then(r => {
+      if (!r.ok) throw new Error('IP lookup failed');
+      return r.json();
+    })
+    .then(data => {
+      // data 里的字段可能因服务而异，请根据实际 API 调整字段名
+      const lat = data.latitude || data.lat || data.latitude;
+      const lon = data.longitude || data.lon || data.longitude;
+      const city = data.city || '';
+      const region = data.region || data.region_name || '';
+      const country = data.country_name || data.country || '';
+
+      if (!lat || !lon) {
+        showError('无法获取位置信息');
+        return;
+      }
+
+      // 在地图上放置标记并缩放到合适视野
+      const marker = L.marker([lat, lon], { title: city || country }).addTo(map);
+      const popupText = ((city ? city + ', ' : '') + (region ? region + ', ' : '') + (country || '')).replace(/, $/, '');
+      marker.bindPopup(popupText || 'Unknown location').openPopup();
+
+      // 设置地图视野：如果在小范围内放大，否则使用全局视角
+      map.setView([lat, lon], 6);
+
+      caption.innerText = popupText || '位置已标注';
+    })
+    .catch(err => {
+      console.warn('visitor map error', err);
+      // 作为回退，尝试使用浏览器的 Geolocation（用户允许时）
+      if (navigator.geolocation) {
+        caption.innerText = '使用浏览器定位…';
+        navigator.geolocation.getCurrentPosition(pos => {
+          const lat = pos.coords.latitude, lon = pos.coords.longitude;
+          const marker = L.marker([lat, lon]).addTo(map);
+          marker.bindPopup('Your location (browser)').openPopup();
+          map.setView([lat, lon], 6);
+          caption.innerText = '浏览器定位已标注';
+        }, geoErr => {
+          showError('无法获取地理位置');
+        }, { timeout: 8000 });
+      } else {
+        showError('定位不可用');
+      }
+    });
+
+})();
+</script>
 
 </body></html>
