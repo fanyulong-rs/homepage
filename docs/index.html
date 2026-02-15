@@ -664,23 +664,45 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 </script>
 </div> <!-- /content -->
 </script>
-<!-- 访客地图：放在 </main> 之后或 </body> 前 -->
+<!-- 访客高亮地图：左下角，宽度 = 视口宽度的一半 -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-#visitor-map { position: fixed; right: 1rem; bottom: 1rem; width: 340px; height: 220px; z-index: 2000;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.18); border-radius: 6px; overflow: hidden; background:#fff; }
-#visitor-map .vm-toggle { position:absolute; left:6px; top:6px; z-index:2100; background:rgba(255,255,255,0.95);
-  padding:4px 6px; border-radius:4px; cursor:pointer; font-size:12px; box-shadow:0 1px 4px rgba(0,0,0,0.08);}
-#visitor-map .vm-caption { position:absolute; right:6px; top:6px; z-index:2100; background:rgba(255,255,255,0.9);
-  padding:4px 6px; border-radius:4px; font-size:12px; color:#333;}
+/* 容器固定在左下角，宽度为视口的一半，高度固定 */
+#visitor-map {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 50vw;            /* 宽度 = 左半部分（viewport 的一半） */
+  max-width: 100%;        /* 防止在极窄窗口下溢出 */
+  height: 320px;         /* 高度可修改 */
+  z-index: 2000;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.22);
+  border-top-right-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+/* 标题、开关、图例样式 */
+#visitor-map .vm-header { position: absolute; left: 12px; top: 10px; z-index:2100;
+  background: rgba(255,255,255,0.95); padding:6px 10px; border-radius:6px; font-size:13px; }
+#visitor-map .vm-toggle { position: absolute; right: 12px; top: 10px; z-index:2100;
+  background: rgba(255,255,255,0.95); padding:6px 10px; border-radius:6px; font-size:12px; cursor:pointer; }
 #vm-map { width:100%; height:100%; }
+#visitor-map .vm-legend { position:absolute; left:12px; bottom:12px; z-index:2100;
+  background: rgba(255,255,255,0.95); padding:6px 10px; border-radius:6px; font-size:12px; }
+
+/* 响应式：在非常窄屏上使宽度为 90vw */
+@media (max-width: 640px) {
+  #visitor-map { width: 90vw; height: 260px; }
+}
 </style>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
 <div id="visitor-map" title="Visitor Map">
+  <div class="vm-header">全球访客地图 🌍</div>
   <div class="vm-toggle" id="vm-toggle">隐藏</div>
-  <div class="vm-caption" id="vm-caption">定位中…</div>
   <div id="vm-map"></div>
+  <div class="vm-legend" id="vm-legend">定位中…</div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -688,10 +710,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 (function(){
   const container = document.getElementById('visitor-map');
   const toggle = document.getElementById('vm-toggle');
-  const caption = document.getElementById('vm-caption');
-  const mapElId = 'vm-map';
-
-  // 切换显示/隐藏
+  const legend = document.getElementById('vm-legend');
   let visible = true;
   toggle.onclick = () => {
     visible = !visible;
@@ -699,63 +718,129 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     toggle.innerText = visible ? '隐藏' : '显示';
   };
 
-  // 初始化 Leaflet 地图（无缩放控件、简洁显示）
-  const map = L.map(mapElId, { zoomControl: true, attributionControl: false }).setView([20,0], 2);
+  // 初始化地图
+  const map = L.map('vm-map', { zoomControl: true, attributionControl: false }).setView([20, 0], 2);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
 
-  // 显示错误信息
-  const showError = (msg) => {
-    caption.innerText = msg;
-  };
+  let countriesLayer = null;
+  let highlightedLayer = null;
 
-  // 获取访客 IP -> 地理位置（替换为你偏好的 IP 定位服务）
-  // ipapi.co 示例：返回 JSON 包含 latitude/longitude
-  fetch('https://ipapi.co/json/')
-    .then(r => {
-      if (!r.ok) throw new Error('IP lookup failed');
-      return r.json();
-    })
-    .then(data => {
-      // data 里的字段可能因服务而异，请根据实际 API 调整字段名
-      const lat = data.latitude || data.lat || data.latitude;
-      const lon = data.longitude || data.lon || data.longitude;
-      const city = data.city || '';
-      const region = data.region || data.region_name || '';
-      const country = data.country_name || data.country || '';
+  const defaultStyle = { color: '#888', weight: 0.6, fillColor: '#f7f7f7', fillOpacity: 0.6 };
+  const highlightStyle = { color: '#2b7cff', weight: 1.5, fillColor: '#2b7cff', fillOpacity: 0.35 };
 
-      if (!lat || !lon) {
-        showError('无法获取位置信息');
-        return;
+  // 世界国家边界 GeoJSON（可改为本地文件以提速）
+  const geoJsonUrl = 'https://cdn.jsdelivr.net/gh/datasets/geo-countries@master/data/countries.geojson';
+
+  fetch(geoJsonUrl).then(r=>{
+    if(!r.ok) throw new Error('countries geojson load failed');
+    return r.json();
+  }).then(worldGeo => {
+    countriesLayer = L.geoJSON(worldGeo, {
+      style: defaultStyle,
+      onEachFeature: (feature, layer) => {
+        const name = feature.properties.ADMIN || feature.properties.NAME || 'Unknown';
+        layer.bindTooltip(name, { sticky: true, direction: 'center', className: 'vm-tooltip' });
       }
+    }).addTo(map);
 
-      // 在地图上放置标记并缩放到合适视野
-      const marker = L.marker([lat, lon], { title: city || country }).addTo(map);
-      const popupText = ((city ? city + ', ' : '') + (region ? region + ', ' : '') + (country || '')).replace(/, $/, '');
-      marker.bindPopup(popupText || 'Unknown location').openPopup();
+    locateAndHighlight();
+  }).catch(err=>{
+    console.warn('加载国家边界失败', err);
+    legend.innerText = '无法加载地图边界';
+  });
 
-      // 设置地图视野：如果在小范围内放大，否则使用全局视角
-      map.setView([lat, lon], 6);
+  function locateAndHighlight(){
+    legend.innerText = '正在定位…';
+    fetch('https://ipapi.co/json/')
+      .then(r=>{ if(!r.ok) throw new Error('ip lookup failed'); return r.json(); })
+      .then(data=>{
+        const lat = data.latitude || data.lat || data.latitude;
+        const lon = data.longitude || data.lon || data.longitude;
+        const country = data.country || data.country_name || data.country_name || '';
+        const region = data.region || data.region_name || data.region || '';
+        const city = data.city || '';
 
-      caption.innerText = popupText || '位置已标注';
-    })
-    .catch(err => {
-      console.warn('visitor map error', err);
-      // 作为回退，尝试使用浏览器的 Geolocation（用户允许时）
-      if (navigator.geolocation) {
-        caption.innerText = '使用浏览器定位…';
-        navigator.geolocation.getCurrentPosition(pos => {
-          const lat = pos.coords.latitude, lon = pos.coords.longitude;
-          const marker = L.marker([lat, lon]).addTo(map);
-          marker.bindPopup('Your location (browser)').openPopup();
-          map.setView([lat, lon], 6);
-          caption.innerText = '浏览器定位已标注';
-        }, geoErr => {
-          showError('无法获取地理位置');
-        }, { timeout: 8000 });
-      } else {
-        showError('定位不可用');
-      }
-    });
+        if(!lat || !lon){
+          legend.innerText = '无法获取位置信息';
+          return;
+        }
+
+        // 标注访客点
+        const visitorMarker = L.circleMarker([lat, lon], { radius:6, color:'#ff6b00', fillColor:'#ff6b00', fillOpacity:0.9 }).addTo(map);
+        visitorMarker.bindPopup((city ? city + ', ' : '') + (region ? region + ', ' : '') + (country || '')).openPopup();
+
+        // 初始视角靠近访客位置
+        map.setView([lat, lon], 4);
+
+        // 尝试按国家名匹配 GeoJSON feature
+        const targetCountryName = (country || '').toLowerCase();
+        let matched = null;
+        countriesLayer.eachLayer(layer => {
+          if (matched) return;
+          const props = layer.feature && layer.feature.properties ? layer.feature.properties : {};
+          const candidates = [props.ADMIN, props.NAME, props.name].filter(Boolean);
+          for(const c of candidates){
+            if(c && c.toString().toLowerCase().includes(targetCountryName)){
+              matched = layer;
+              break;
+            }
+          }
+        });
+
+        if(matched){
+          if(highlightedLayer) countriesLayer.resetStyle(highlightedLayer);
+          matched.setStyle(highlightStyle);
+          highlightedLayer = matched;
+          try { map.fitBounds(matched.getBounds(), { padding:[20,20], maxZoom:6 }); } catch(e){}
+          legend.innerText = '访客地区：' + (country + (region ? (' / ' + region) : ''));
+          return;
+        }
+
+        // 若未匹配国家，则做 bounds 内简单查找（粗略）
+        let foundByPoint = null;
+        countriesLayer.eachLayer(layer => {
+          if (foundByPoint) return;
+          const bounds = layer.getBounds && layer.getBounds();
+          if(bounds && bounds.contains([lat, lon])){
+            foundByPoint = layer;
+          }
+        });
+
+        if(foundByPoint){
+          if(highlightedLayer) countriesLayer.resetStyle(highlightedLayer);
+          foundByPoint.setStyle(highlightStyle);
+          highlightedLayer = foundByPoint;
+          try { map.fitBounds(foundByPoint.getBounds(), { padding:[20,20], maxZoom:6 }); } catch(e){}
+          legend.innerText = '访客地区：' + (country || '未知');
+          return;
+        }
+
+        // 最后回退只显示点
+        legend.innerText = '访客位置已标注：' + (city?city + ', ':'') + (country || '');
+      })
+      .catch(err=>{
+        console.warn('ip lookup failed', err);
+        if(navigator.geolocation){
+          legend.innerText = '尝试浏览器定位…';
+          navigator.geolocation.getCurrentPosition(pos=>{
+            const lat = pos.coords.latitude, lon = pos.coords.longitude;
+            L.circleMarker([lat, lon], { radius:6, color:'#ff6b00', fillColor:'#ff6b00', fillOpacity:0.9 }).addTo(map).bindPopup('Your location').openPopup();
+            map.setView([lat, lon], 4);
+            legend.innerText = '已用浏览器定位';
+          }, geoErr=>{
+            console.warn('browser geolocation error', geoErr);
+            legend.innerText = '定位失败';
+          }, { timeout:8000 });
+        } else {
+          legend.innerText = '定位失败';
+        }
+      });
+  }
+
+  // 当窗口尺寸变化时让地图重绘（确保占满 50vw）
+  window.addEventListener('resize', () => {
+    setTimeout(() => { map.invalidateSize(); }, 200);
+  });
 
 })();
 </script>
