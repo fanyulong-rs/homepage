@@ -664,26 +664,26 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 </script>
 </div> <!-- /content -->
 </script>
-<!-- 访客高亮地图：左下角，宽度 = 视口宽度的一半 -->
+
+
+<!-- 与左侧简介容器等宽的访客高亮地图（左下角） -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-/* 容器固定在左下角，宽度为视口的一半，高度固定 */
+/* 基本样式：固定在左下，初始 width 会通过 JS 设置 */
 #visitor-map {
   position: fixed;
   left: 0;
   bottom: 0;
-  width: 50vw;            /* 宽度 = 左半部分（viewport 的一半） */
-  max-width: 100%;        /* 防止在极窄窗口下溢出 */
-  height: 320px;         /* 高度可修改 */
+  width: 50vw;            /* 占位，JS 会覆盖为目标元素宽度 */
+  height: 320px;          /* 如需更高/低可调整 */
   z-index: 2000;
   box-shadow: 0 8px 28px rgba(0,0,0,0.22);
   border-top-right-radius: 10px;
   overflow: hidden;
   background: #fff;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  transition: width 200ms ease;
 }
-
-/* 标题、开关、图例样式 */
 #visitor-map .vm-header { position: absolute; left: 12px; top: 10px; z-index:2100;
   background: rgba(255,255,255,0.95); padding:6px 10px; border-radius:6px; font-size:13px; }
 #visitor-map .vm-toggle { position: absolute; right: 12px; top: 10px; z-index:2100;
@@ -691,8 +691,6 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 #vm-map { width:100%; height:100%; }
 #visitor-map .vm-legend { position:absolute; left:12px; bottom:12px; z-index:2100;
   background: rgba(255,255,255,0.95); padding:6px 10px; border-radius:6px; font-size:12px; }
-
-/* 响应式：在非常窄屏上使宽度为 90vw */
 @media (max-width: 640px) {
   #visitor-map { width: 90vw; height: 260px; }
 }
@@ -716,19 +714,59 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     visible = !visible;
     container.style.display = visible ? 'block' : 'none';
     toggle.innerText = visible ? '隐藏' : '显示';
+    // 刷新地图尺寸
+    setTimeout(()=> map.invalidateSize(), 250);
   };
 
-  // 初始化地图
+  // 找到左侧内容容器：优先使用 .quarto-about-trestles，其次尝试常见选择器
+  function findLeftContainer() {
+    let el = document.querySelector('.quarto-about-trestles');
+    if (el) return el;
+    // 退而求其次：尝试页面主要内容列
+    el = document.querySelector('main.content') || document.querySelector('.about-entity') || document.querySelector('.about-contents');
+    return el;
+  }
+
+  const leftEl = findLeftContainer();
+
+  // 将地图宽度设置为目标元素的宽度（相对于视口）
+  function syncWidthToLeftElement() {
+    if (!leftEl) {
+      // 无目标元素则退回到 50vw
+      container.style.width = '50vw';
+      return;
+    }
+    // 计算左元素的右边距相对于视口左侧的像素（即元素的 offsetLeft + width）
+    const rect = leftEl.getBoundingClientRect();
+    // 如果 leftEl 在右侧（不太可能），至少取一个最小宽度
+    let targetWidth = Math.max(rect.right, 200);
+    // 但我们希望地图位于左下角，因此宽度应为 rect.right（元素右边到视口左端的像素）
+    targetWidth = Math.max(rect.right, 200);
+    container.style.width = targetWidth + 'px';
+    // 确保地图重绘
+    if (map) {
+      setTimeout(()=> map.invalidateSize(), 220);
+    }
+  }
+
+  // 初始化 Leaflet 地图
   const map = L.map('vm-map', { zoomControl: true, attributionControl: false }).setView([20, 0], 2);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
 
+  // 调整宽度初始值
+  syncWidthToLeftElement();
+
+  // 在窗口尺寸变化或 DOM 变化时同步宽度
+  window.addEventListener('resize', () => { syncWidthToLeftElement(); });
+  // 监听 DOM 变化（例如侧栏加载、图片加载后布局变化）
+  const ro = new MutationObserver(() => { syncWidthToLeftElement(); });
+  ro.observe(document.body, { childList: true, subtree: true, attributes: true });
+
+  // 地图 GeoJSON 与高亮相关
   let countriesLayer = null;
   let highlightedLayer = null;
-
   const defaultStyle = { color: '#888', weight: 0.6, fillColor: '#f7f7f7', fillOpacity: 0.6 };
   const highlightStyle = { color: '#2b7cff', weight: 1.5, fillColor: '#2b7cff', fillOpacity: 0.35 };
-
-  // 世界国家边界 GeoJSON（可改为本地文件以提速）
   const geoJsonUrl = 'https://cdn.jsdelivr.net/gh/datasets/geo-countries@master/data/countries.geojson';
 
   fetch(geoJsonUrl).then(r=>{
@@ -742,7 +780,6 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
         layer.bindTooltip(name, { sticky: true, direction: 'center', className: 'vm-tooltip' });
       }
     }).addTo(map);
-
     locateAndHighlight();
   }).catch(err=>{
     console.warn('加载国家边界失败', err);
@@ -765,27 +802,25 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
           return;
         }
 
-        // 标注访客点
         const visitorMarker = L.circleMarker([lat, lon], { radius:6, color:'#ff6b00', fillColor:'#ff6b00', fillOpacity:0.9 }).addTo(map);
         visitorMarker.bindPopup((city ? city + ', ' : '') + (region ? region + ', ' : '') + (country || '')).openPopup();
-
-        // 初始视角靠近访客位置
         map.setView([lat, lon], 4);
 
-        // 尝试按国家名匹配 GeoJSON feature
         const targetCountryName = (country || '').toLowerCase();
         let matched = null;
-        countriesLayer.eachLayer(layer => {
-          if (matched) return;
-          const props = layer.feature && layer.feature.properties ? layer.feature.properties : {};
-          const candidates = [props.ADMIN, props.NAME, props.name].filter(Boolean);
-          for(const c of candidates){
-            if(c && c.toString().toLowerCase().includes(targetCountryName)){
-              matched = layer;
-              break;
+        if (countriesLayer) {
+          countriesLayer.eachLayer(layer => {
+            if (matched) return;
+            const props = layer.feature && layer.feature.properties ? layer.feature.properties : {};
+            const candidates = [props.ADMIN, props.NAME, props.name].filter(Boolean);
+            for(const c of candidates){
+              if(c && c.toString().toLowerCase().includes(targetCountryName)){
+                matched = layer;
+                break;
+              }
             }
-          }
-        });
+          });
+        }
 
         if(matched){
           if(highlightedLayer) countriesLayer.resetStyle(highlightedLayer);
@@ -796,15 +831,17 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
           return;
         }
 
-        // 若未匹配国家，则做 bounds 内简单查找（粗略）
+        // bounds 粗查
         let foundByPoint = null;
-        countriesLayer.eachLayer(layer => {
-          if (foundByPoint) return;
-          const bounds = layer.getBounds && layer.getBounds();
-          if(bounds && bounds.contains([lat, lon])){
-            foundByPoint = layer;
-          }
-        });
+        if (countriesLayer) {
+          countriesLayer.eachLayer(layer => {
+            if (foundByPoint) return;
+            const bounds = layer.getBounds && layer.getBounds();
+            if(bounds && bounds.contains([lat, lon])){
+              foundByPoint = layer;
+            }
+          });
+        }
 
         if(foundByPoint){
           if(highlightedLayer) countriesLayer.resetStyle(highlightedLayer);
@@ -815,7 +852,6 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
           return;
         }
 
-        // 最后回退只显示点
         legend.innerText = '访客位置已标注：' + (city?city + ', ':'') + (country || '');
       })
       .catch(err=>{
@@ -837,10 +873,9 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       });
   }
 
-  // 当窗口尺寸变化时让地图重绘（确保占满 50vw）
-  window.addEventListener('resize', () => {
-    setTimeout(() => { map.invalidateSize(); }, 200);
-  });
+  // 在初始加载后一段时间再同步一次（等待图片/字体加载导致布局完成）
+  setTimeout(syncWidthToLeftElement, 600);
+  setTimeout(syncWidthToLeftElement, 1400);
 
 })();
 </script>
