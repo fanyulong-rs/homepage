@@ -20,15 +20,80 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; 
   vertical-align: middle;
 }
-  /* 将照片及左侧信息整体左移 1.5rem，按需调整数值 */
+ /* === 个人信息区左偏与美化（直接粘到现有 <style> 中） === */
+
+/* 整体左移（调整这里的值改变偏移量，负值向左，正值向右） */
 .quarto-about-trestles .about-entity {
-  margin-left: -1.5rem;
+  margin-left: -1.5rem; /* 可改为 -1rem 或 -20px 等，根据喜好调整 */
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
 }
 
-/* 手机端保持默认对齐，避免布局问题 */
-@media (max-width: 768px) {
+/* 头像样式增强：大小、圆角、阴影 */
+.quarto-about-trestles .about-entity .about-image {
+  height: 12em;
+  width: 12em;
+  object-fit: cover;
+  border-radius: 50%;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  flex-shrink: 0;
+}
+
+/* 标题（姓名）和 meta 空间微调 */
+.quarto-about-trestles .about-contents {
+  margin-left: 0.25rem; /* 让文字块和头像更紧密 */
+}
+.quarto-about-trestles .quarto-title .title {
+  font-size: 2rem; /* 可适当放大名字 */
+  margin-bottom: 0.25rem;
+  line-height: 1.05;
+}
+
+/* 联系方式（图标+文字）排版一致化 */
+.quarto-about-trestles .about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  margin-top: 0.35rem;
+}
+.quarto-about-trestles .about-links .about-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: inherit;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+/* 简介段落：更好阅读体验 */
+.quarto-about-trestles .about-contents p {
+  color: #222;
+  line-height: 1.6;
+  margin-bottom: 0.65rem;
+}
+
+/* 小屏幕：取消左移，头像与文字垂直堆叠 */
+@media (max-width: 900px) {
   .quarto-about-trestles .about-entity {
     margin-left: 0;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.8rem;
+  }
+  .quarto-about-trestles .about-contents {
+    margin-left: 0;
+  }
+  .quarto-about-trestles .about-links {
+    justify-content: center;
+  }
+}
+
+/* 额外：在非常宽屏上略微增加左偏以增强视觉效果 */
+@media (min-width: 1400px) {
+  .quarto-about-trestles .about-entity {
+    margin-left: -2rem;
   }
 }
 </style>
